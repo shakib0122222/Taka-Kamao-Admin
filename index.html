@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - Taka Income Pro</title>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700;800&display=swap');
+        :root { 
+            --primary-color: #ff6347; 
+            --primary-color-rgb: 255, 99, 71; 
+            --secondary-color: #e5533d; 
+            --background-color: #F0F2F5; 
+            --card-background: #FFFFFF; 
+            --text-color: #1D1D1F; 
+            --text-light: #6E6E73; 
+            --border-color: #E5E5EA; 
+            --glass-bg: rgba(240, 242, 245, 0.8); 
+            --tomato-gradient: linear-gradient(135deg, #ff6347, #e5533d, #d43f2a);
+        }
+        [data-theme="dark"] { 
+            --background-color: #000000; 
+            --card-background: #1C1C1E; 
+            --text-color: #F5F5F7; 
+            --text-light: #8E8E93; 
+            --border-color: #3A3A3C; 
+            --glass-bg: rgba(28, 28, 30, 0.8); 
+        }
+        
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Noto Sans', sans-serif; background: var(--tomato-gradient), var(--background-color); background-size: cover; background-blend-mode: overlay; color: var(--text-color); min-height: 100vh; padding: 20px; transition: background-color 0.3s, color 0.3s; }
+        
+        .container { max-width: 1000px; margin: 0 auto; }
+        .header { text-align: center; margin-bottom: 30px; color: white; text-shadow: 0 2px 4px rgba(0,0,0,0.3); }
+        .header h1 { font-size: 28px; font-weight: 800; }
+        .header p { font-size: 16px; opacity: 0.9; }
+
+        .card { background: var(--card-background); border-radius: 18px; padding: 20px; margin-bottom: 20px; border: 1px solid var(--border-color); box-shadow: 0 4px 12px rgba(0,0,0,0.1); background: var(--tomato-gradient), var(--card-background); background-size: cover; background-blend-mode: overlay; opacity: 0.95; }
+        .card-title { font-size: 20px; font-weight: 700; margin-bottom: 15px; color: var(--primary-color); }
+
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; margin-bottom: 20px; }
+        .stat-card { background: var(--card-background); padding: 18px; border-radius: 16px; text-align: center; border: 1px solid var(--border-color); }
+        .stat-card .icon { font-size: 32px; color: var(--primary-color); margin-bottom: 10px; }
+        .stat-card .value { font-size: 24px; font-weight: 800; }
+        .stat-card .label { font-size: 14px; color: var(--text-light); }
+
+        .tab-buttons { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+        .tab-btn { padding: 12px 20px; background: var(--card-background); border: 1px solid var(--border-color); border-radius: 12px; cursor: pointer; font-weight: 600; transition: all 0.2s; }
+        .tab-btn.active { background: var(--tomato-gradient); color: white; border-color: var(--primary-color); }
+
+        .table { width: 100%; border-collapse: collapse; }
+        .table th, .table td { padding: 12px; text-align: left; border-bottom: 1px solid var(--border-color); }
+        .table th { background: rgba(var(--primary-color-rgb), 0.1); font-weight: 600; }
+        .table tr:hover { background: rgba(var(--primary-color-rgb), 0.05); }
+        .action-btn { padding: 6px 12px; border: none; border-radius: 8px; cursor: pointer; font-size: 12px; font-weight: 600; }
+        .btn-success { background: #28a745; color: white; }
+        .btn-danger { background: #dc3545; color: white; }
+        .btn-warning { background: #fd7e14; color: white; }
+
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 6px; font-weight: 600; }
+        .form-group input, .form-group select { width: 100%; padding: 12px; border: 1px solid var(--border-color); border-radius: 10px; background: var(--background-color); color: var(--text-color); }
+
+        .action-button { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 14px; background: var(--tomato-gradient); color: white; border: none; border-radius: 12px; font-weight: 700; cursor: pointer; width: 100%; margin-top: 10px; }
+        .action-button:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(var(--primary-color-rgb), 0.3); }
+
+        .hidden { display: none; }
+        .loading { text-align: center; padding: 40px; color: var(--text-light); }
+        .spinner { border: 3px solid #f3f3f3; border-top: 3px solid var(--primary-color); border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; display: inline-block; margin-right: 10px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        @media (max-width: 768px) {
+            .grid { grid-template-columns: 1fr; }
+            .tab-buttons { flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Taka Income Pro - Admin Panel</h1>
+            <p>Manage users, withdrawals, and settings</p>
+        </div>
+
+        <!-- Stats Grid -->
+        <div class="grid">
+            <div class="stat-card"><div class="icon"><i class="fa-solid fa-users"></i></div><div class="value" id="total-users">0</div><div class="label">Total Users</div></div>
+            <div class="stat-card"><div class="icon"><i class="fa-solid fa-user-plus"></i></div><div class="value" id="today-users">0</div><div class="label">Today Joined</div></div>
+            <div class="stat-card"><div class="icon"><i class="fa-solid fa-money-bill-transfer"></i></div><div class="value" id="pending-withdrawals">0</div><div class="label">Pending Withdrawals</div></div>
+            <div class="stat-card"><div class="icon"><i class="fa-solid fa-check-circle"></i></div><div class="value" id="total-paid">৳0</div><div class="label">Total Paid</div></div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="tab-buttons">
+            <button class="tab-btn active" onclick="openTab('users')">Users</button>
+            <button class="tab-btn" onclick="openTab('withdrawals')">Withdrawals</button>
+            <button class="tab-btn" onclick="openTab('settings')">Settings</button>
+            <button class="tab-btn" onclick="openTab('broadcast')">Broadcast</button>
+        </div>
+
+        <!-- Users Tab -->
+        <div id="users" class="tab-content">
+            <div class="card">
+                <h3 class="card-title">User Management</h3>
+                <input type="text" id="search-user" placeholder="Search by Name, ID, or Phone" class="form-group" onkeyup="searchUsers()">
+                <div id="users-list" class="loading"><div class="spinner"></div> Loading users...</div>
+            </div>
+        </div>
+
+        <!-- Withdrawals Tab -->
+        <div id="withdrawals" class="tab-content hidden">
+            <div class="card">
+                <h3 class="card-title">Withdrawal Requests</h3>
+                <div id="withdrawals-list" class="loading"><div class="spinner"></div> Loading withdrawals...</div>
+            </div>
+        </div>
+
+        <!-- Settings Tab -->
+        <div id="settings" class="tab-content hidden">
+            <div class="card">
+                <h3 class="card-title">App Settings</h3>
+                <div class="form-group">
+                    <label>Ad Reward (BDT)</label>
+                    <input type="number" id="ad-reward" step="0.01">
+                </div>
+                <div class="form-group">
+                    <label>Daily Ad Limit</label>
+                    <input type="number" id="daily-limit">
+                </div>
+                <div class="form-group">
+                    <label>Min Withdrawal (BDT)</label>
+                    <input type="number" id="min-withdraw">
+                </div>
+                <button class="action-button" onclick="saveSettings()">Save Settings</button>
+            </div>
+        </div>
+
+        <!-- Broadcast Tab -->
+        <div id="broadcast" class="tab-content hidden">
+            <div class="card">
+                <h3 class="card-title">Send Broadcast</h3>
+                <textarea id="broadcast-message" placeholder="Type your message..." style="width:100%; height:100px; padding:12px; border-radius:10px; border:1px solid var(--border-color); margin-bottom:10px;"></textarea>
+                <button class="action-button" onclick="sendBroadcast()">Send to All Users</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Firebase Config (SAME AS USER APP) ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyCWvaqpi3LvNDeZpDBunnDwU392ZH_FY8M",
+            authDomain: "st-project-taka-kamao.firebaseapp.com",
+            databaseURL: "https://st-project-taka-kamao-default-rtdb.firebaseio.com",
+            projectId: "st-project-taka-kamao",
+            storageBucket: "st-project-taka-kamao.firebasestorage.app",
+            messagingSenderId: "151575920757",
+            appId: "1:151575920757:web:5dc8e0e2a0856f5a76b83c",
+            measurementId: "G-V0QDHQ27L3"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        const ADMIN_IDS = [7731349577]; // YOUR TELEGRAM ID
+        let currentUser = null;
+
+        // Check Admin
+        function checkAdmin() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const userId = urlParams.get('user');
+            if (!userId || !ADMIN_IDS.includes(parseInt(userId))) {
+                document.body.innerHTML = `<div style="text-align:center; padding:100px; color:white;"><h2>Access Denied</h2><p>You are not an admin.</p></div>`;
+                return false;
+            }
+            currentUser = parseInt(userId);
+            return true;
+        }
+
+        // Load Stats
+        async function loadStats() {
+            const usersRef = db.ref('users');
+            const snapshot = await usersRef.once('value');
+            const users = snapshot.val() || {};
+            const total = Object.keys(users).length;
+            const today = new Date().toLocaleDateString();
+            let todayCount = 0;
+            let pending = 0;
+            let totalPaid = 0;
+
+            Object.values(users).forEach(u => {
+                if (u.joinDate === today) todayCount++;
+                if (u.withdrawalHistory) {
+                    u.withdrawalHistory.forEach(w => {
+                        if (w.status === 'Pending') pending++;
+                        if (w.status === 'Success') totalPaid += w.amount;
+                    });
+                }
+            });
+
+            document.getElementById('total-users').textContent = total;
+            document.getElementById('today-users').textContent = todayCount;
+            document.getElementById('pending-withdrawals').textContent = pending;
+            document.getElementById('total-paid').textContent = `৳${totalPaid.toFixed(2)}`;
+        }
+
+        // Load Users
+        async function loadUsers() {
+            const snapshot = await db.ref('users').once('value');
+            const users = snapshot.val() || {};
+            const list = document.getElementById('users-list');
+            list.innerHTML = `
+                <table class="table">
+                    <thead><tr><th>ID</th><th>Name</th><th>Balance</th><th>Referrals</th><th>Actions</th></tr></thead>
+                    <tbody>
+                        ${Object.entries(users).map(([id, u]) => `
+                            <tr>
+                                <td><code>${id}</code></td>
+                                <td>${u.first_name || 'N/A'} (@${u.username || 'N/A'})</td>
+                                <td>৳${(u.totalEarning || 0).toFixed(2)}</td>
+                                <td>${u.referralCount || 0}</td>
+                                <td>
+                                    <button class="action-btn btn-warning" onclick="editUser('${id}')">Edit</button>
+                                    <button class="action-btn btn-danger" onclick="banUser('${id}')">Ban</button>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>`;
+        }
+
+        // Load Withdrawals
+        async function loadWithdrawals() {
+            const snapshot = await db.ref('users').once('value');
+            const users = snapshot.val() || {};
+            let requests = [];
+            Object.entries(users).forEach(([id, u]) => {
+                if (u.withdrawalHistory) {
+                    u.withdrawalHistory.forEach((w, i) => {
+                        if (w.status === 'Pending') {
+                            requests.push({ userId: id, index: i, ...w, user: u });
+                        }
+                    });
+                }
+            });
+
+            const list = document.getElementById('withdrawals-list');
+            list.innerHTML = requests.length === 0 ? '<p>No pending withdrawals.</p>' : `
+                <table class="table">
+                    <thead><tr><th>User</th><th>Amount</th><th>Method</th><th>Account</th><th>Actions</th></tr></thead>
+                    <tbody>
+                        ${requests.map(r => `
+                            <tr>
+                                <td>${r.user.first_name} (@${r.user.username})</td>
+                                <td>৳${r.amount}</td>
+                                <td>${r.method}</td>
+                                <td><code>${r.number}</code></td>
+                                <td>
+                                    <button class="action-btn btn-success" onclick="approveWithdrawal('${r.userId}', ${r.index})">Approve</button>
+                                    <button class="action-btn btn-danger" onclick="rejectWithdrawal('${r.userId}', ${r.index})">Reject</button>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>`;
+        }
+
+        // Approve Withdrawal
+        async function approveWithdrawal(userId, index) {
+            if (!confirm('Mark as paid?')) return;
+            await db.ref(`users/${userId}/withdrawalHistory/${index}`).update({ status: 'Success' });
+            alert('Marked as paid!');
+            loadWithdrawals();
+            loadStats();
+        }
+
+        // Tab System
+        function openTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.add('hidden'));
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(tabName).classList.remove('hidden');
+            document.querySelector(`button[onclick="openTab('${tabName}')"]`).classList.add('active');
+
+            if (tabName === 'users') loadUsers();
+            if (tabName === 'withdrawals') loadWithdrawals();
+        }
+
+        // Init
+        window.onload = () => {
+            if (!checkAdmin()) return;
+            loadStats();
+            openTab('users');
+            setInterval(loadStats, 10000);
+        };
+    </script>
+</body>
+</html>
